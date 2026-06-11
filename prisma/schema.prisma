@@ -1,0 +1,157 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum PrivacyExportStatus {
+  REQUESTED
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model Customer {
+  id                    String                 @id @default(cuid())
+  authUserId            String                 @unique
+  email                 String
+  displayName           String?
+  phone                 String?
+  birthDate             DateTime?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  addresses             CustomerAddress[]
+  preferences           CustomerPreferences?
+  wishlistItems         WishlistItem[]
+  wishlistShares        WishlistShare[]
+  followedSellers       FollowedSeller[]
+  orderReferences       CustomerOrderReference[]
+  privacyExportRequests PrivacyExportRequest[]
+
+  @@index([email])
+  @@map("customers")
+}
+
+model CustomerAddress {
+  id            String   @id @default(cuid())
+  customerId    String
+  label         String?
+  recipientName String
+  phone         String?
+  country       String
+  state         String
+  city          String
+  neighborhood  String?
+  street        String
+  number        String
+  complement    String?
+  postalCode    String
+  isDefault     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  customer      Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@map("customer_addresses")
+}
+
+model CustomerPreferences {
+  id                  String   @id @default(cuid())
+  customerId          String   @unique
+  marketingEmailOptIn Boolean  @default(false)
+  marketingSmsOptIn   Boolean  @default(false)
+  marketingPushOptIn  Boolean  @default(false)
+  orderUpdatesOptIn   Boolean  @default(true)
+  sellerUpdatesOptIn  Boolean  @default(true)
+  locale              String   @default("en-US")
+  currency            String   @default("USD")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  customer            Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@map("customer_preferences")
+}
+
+model WishlistItem {
+  id         String   @id @default(cuid())
+  customerId String
+  listingId  String
+  sellerId   String?
+  notes      String?
+  addedAt    DateTime @default(now())
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([customerId, listingId])
+  @@index([customerId])
+  @@map("wishlist_items")
+}
+
+model WishlistShare {
+  id         String    @id @default(cuid())
+  customerId String
+  shareToken String    @unique
+  expiresAt  DateTime?
+  createdAt  DateTime  @default(now())
+  customer   Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@map("wishlist_shares")
+}
+
+model FollowedSeller {
+  id         String   @id @default(cuid())
+  customerId String
+  sellerId   String
+  createdAt  DateTime @default(now())
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([customerId, sellerId])
+  @@index([customerId])
+  @@map("followed_sellers")
+}
+
+model CustomerOrderReference {
+  id               String   @id @default(cuid())
+  customerId       String
+  orderId          String   @unique
+  status           String
+  totalAmountCents Int?
+  currency         String?
+  placedAt         DateTime?
+  updatedAt        DateTime @updatedAt
+  customer         Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@index([status])
+  @@map("customer_order_references")
+}
+
+model PrivacyExportRequest {
+  id          String              @id @default(cuid())
+  customerId  String
+  status      PrivacyExportStatus @default(REQUESTED)
+  requestedAt DateTime            @default(now())
+  completedAt DateTime?
+  downloadUrl String?
+  customer    Customer            @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@index([status])
+  @@map("privacy_export_requests")
+}
+
+model OutboxEvent {
+  id          String    @id @default(cuid())
+  topic       String
+  type        String
+  payload     Json
+  publishedAt DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([topic])
+  @@index([publishedAt])
+  @@map("outbox_events")
+}
+
